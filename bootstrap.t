@@ -89,8 +89,6 @@ __>IN:
 \ ------------
 
 \ Unavailable opcodes
-: R>
-  R@ RDROP EXIT
 : 1+
   LIT 1 + EXIT
 : FALSE
@@ -125,9 +123,9 @@ exit_DROP:
     DROP EXIT
 
 : ROT   \ a b c -- b c a
-    >R SWAP R> SWAP EXIT
+    >R SWAP R@ RDROP SWAP EXIT
 : UNROT \ a b c -- c a b
-    SWAP >R SWAP R> EXIT
+    SWAP >R SWAP R@ RDROP EXIT
 : TUCK  \ a b -- b a b
     SWAP OVER EXIT
 : NIP   \ a b -- b
@@ -373,9 +371,9 @@ exit_0=: \ THEN
     \ -- u digit addr len
     >R >R >R         \ -- u  r: -- len addr digit
     10*
-    R> +
-    R> CHAR+
-    R> 1-
+    R@ RDROP +
+    R@ RDROP CHAR+
+    R@ RDROP 1-
     BRANCH >NUMBER \ REPEAT
 
 
@@ -438,14 +436,14 @@ exit_0=: \ THEN
     R@     \ -- addr length
     0BRANCH WORD.exit \ IF
     PAD           \ -- addr caddr
-    R> OVER !     \ store the length first  -- addr caddr
+    R@ RDROP OVER !     \ store the length first  -- addr caddr
     SWAP          \ -- caddr addr
     OVER CELL+ !  \ store the addr(c) second
     \ -- caddr
     EXIT
 WORD.exit:
     DROP  \ --
-    R>    \ -- 0
+    R@ RDROP    \ -- 0
     EXIT
 
 
@@ -487,7 +485,7 @@ WORD.exit:
     2DUP SWAP - UNROT
     R@ ENCLOSE<>
     2DUP SWAP - UNROT
-    R> ENCLOSE=
+    R@ RDROP ENCLOSE=
     SWAP -
     EXIT
 
@@ -621,10 +619,10 @@ ENCLOSE<>.2: \ THEN
     2DUP C@ SWAP C@ =
     0BRANCH (S=).exit \ WHILE
     CHAR+ SWAP CHAR+
-    R> 1-
+    R@ RDROP 1-
     BRANCH (S=) \ REPEAT
 (S=).exit:      \ -- addr1 addr2   r: -- len
-    2DROP R> 0=
+    2DROP R@ RDROP 0=
     EXIT
 
 : S=    \ addr1 len1 addr2 len2 -- bool
@@ -637,7 +635,7 @@ ENCLOSE<>.2: \ THEN
 
 \ : C= >R COUNT R> COUNT S= ;
 : C=    \ caddr1 caddr2 -- bool
-    >R COUNT R> COUNT
+    >R COUNT R@ RDROP COUNT
     BRANCH S=
 
 
@@ -741,7 +739,7 @@ start: \ :NONAME
     1- >R
     2DUP SWAP C@ SWAP C!
     CHAR+ SWAP CHAR+ SWAP
-    R>
+    R@ RDROP
     BRANCH CMOVE \ REPEAT
 
 ((
@@ -793,7 +791,7 @@ start: \ :NONAME
     \ ALIGN         \ NFA
     HERE SWAP       \                  -- nfa len
     ,               \ compile length   -- nfa
-    R> ,            \ compile addr(c)  -- nfa
+    R@ RDROP ,      \ compile addr(c)  -- nfa
     LIT 0 ,         \ compile flags    -- nfa
     EXIT
 
@@ -984,10 +982,10 @@ LATEST!.exit:
 ))
 
 : (CREATE)
-    R> EXIT
+    R@ RDROP EXIT
 
 : (DOES>)
-    R> PFA @ !
+    R@ RDROP PFA @ !
     LIT 0 PFA !
     EXIT
 
@@ -1038,7 +1036,7 @@ last_word:
     IMMEDIATE
     (DOES>)   \ DOES>
 opcode.does:
-    R>        \ DOES>
+    R@ RDROP  \ DOES>
     STATE @
     0BRANCH EXECUTE
     @ COMPILE,
