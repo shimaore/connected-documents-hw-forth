@@ -199,15 +199,7 @@ void compile_header(char const* name, short immediate)
   g_cell new_latest = here;
 
   unsigned len = strlen(name);
-
-  // NFA
-  compile_value(len);       // len
-  compile_value(here); // addr(c)
-  compile_value(immediate); // flags
-
-  // LFA
-  compile_value(latest);
-  latest = new_latest;
+  g_cell name_pos = here;
 
   // Save the name
   unsigned i;
@@ -216,6 +208,15 @@ void compile_header(char const* name, short immediate)
     set_char(here+i,name[i]);
   }
   here += len;
+
+  // NFA
+  compile_value(len);       // len
+  compile_value(name_pos); // addr(c)
+  compile_value(immediate); // flags
+
+  // LFA
+  compile_value(latest);
+  latest = new_latest;
 
   // PFA
   create_name(name,here);

@@ -32,6 +32,7 @@ usart.not_newline:
   \ increment usart_>IN
   usart_>IN @ CHAR+ usart_>IN !
   \ return from interrupt (i.e. at the step following `sleep`, or anywhere else in the code)
+  RDROP \ required for all interrupts
   EXIT
 
 EMIT:
@@ -241,15 +242,16 @@ QUIT:
     \ Start in execute mode
     [
     \ Initialize the input buffers
-    LIT addr_tib1 LIT usart_TIB !
-    LIT addr_tib2 LIT TIB !
+    LIT addr_tib1 usart_TIB !
+    LIT addr_tib2 TIB !
     LIT 0 usart_>IN !
 QUIT.begin: \ BEGIN
     sleep
     \ Make sure the input buffer is not empty
     usart_>IN @
     0BRANCH QUIT.begin
-    TIB @ >IN @ + C@
+    \ Only try to interpret at end-of-line.
+    usart_TIB @ usart_>IN @ 1- + C@
     0=
     0BRANCH QUIT.begin
     \ Swap TIB & usart_TIB
@@ -665,6 +667,7 @@ ENCLOSE<>.2: \ THEN
 
 start: \ :NONAME
     QUIT
+    RDROP \ required for all interrupts
     BYE
 
 ((
