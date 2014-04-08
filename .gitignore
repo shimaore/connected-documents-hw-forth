@@ -1,4 +1,6 @@
 fas/fas
 fas/*.o
 fas/fas.tab.h
-forth.bin
+forth.bin*
+opcodes.*
+emulate
