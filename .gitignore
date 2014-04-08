@@ -1,0 +1,4 @@
+fas/fas
+fas/*.o
+fas/fas.tab.h
+forth.bin

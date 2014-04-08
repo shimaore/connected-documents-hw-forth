@@ -7,19 +7,31 @@ BYE:
 interrupt_usart:
   usart
 
+: usart_TIB     ( Current Input Buffer used by usart interrupt vector )
+    LIT __usart_TIB
+    EXIT
+__usart_TIB:
+    0
+
+: usart_>IN     ( Cursor offset in usart_TIB )
+    LIT __usart_>IN
+    EXIT
+__usart_>IN:
+    0
+
 usart:
   usart_received
   \ substitute NEWLINE with 0
   DUP
   NEWLINE =
-  0BRANCH usart.skip
+  0BRANCH usart.not_newline
   DROP LIT 0
-usart.skip:
+usart.not_newline:
   \ store character at TIB + >TIB
-  TIB @ >TIB @ + C!
-  \ increment >TIB
-  >TIB @ CHAR+ >TIB !
-  \ return from interrupt (i.e. at the step following `sleep`)
+  usart_TIB @ usart_>IN @ + C!
+  \ increment usart_>IN
+  usart_>IN @ CHAR+ usart_>IN !
+  \ return from interrupt (i.e. at the step following `sleep`, or anywhere else in the code)
   EXIT
 
 EMIT:
@@ -51,23 +63,25 @@ __STATE:
     LIT __LATEST  EXIT
 __LATEST:
     last_word
+
 : PFA     ( PFA of word currently been defined )
     LIT __PFA     EXIT
 __PFA:
     0
+
 : NFA     ( NFA of word currently been defined )
     LIT __NFA     EXIT
 __NFA:
     0
+
 : TIB     ( The Input Buffer )
-    LIT addr_tib EXIT
+    LIT __TIB     EXIT
+__TIB:
+    0
+
 : >IN     ( Cursor offset in TIB )
     LIT __>IN     EXIT
 __>IN:
-    0
-: >TIB     ( Cursor offset in TIB )
-    LIT __>TIB     EXIT
-__>TIB:
     0
 
 
@@ -102,20 +116,20 @@ __>TIB:
     DUP + EXIT
 : 10*
     2* DUP 2* 2* + EXIT
-: 2DUP
+: 2DUP  \ a b -- a b a b
     OVER OVER EXIT
-: 2DROP
+: 2DROP \ a b --
     DROP
 exit_DROP:
     DROP EXIT
 
-: ROT
+: ROT   \ a b c -- b c a
     >R SWAP R> SWAP EXIT
-: UNROT
+: UNROT \ a b c -- c a b
     SWAP >R SWAP R> EXIT
-: TUCK
+: TUCK  \ a b -- b a b
     SWAP OVER EXIT
-: NIP
+: NIP   \ a b -- b
     SWAP DROP EXIT
 : +!
     TUCK @ + SWAP ! EXIT
@@ -135,9 +149,6 @@ exit_DROP:
 
 : HERE
     DP @ EXIT
-
-: CHAR-HERE
-    CHAR-DP @ EXIT
 
 ((
   : ALLOT      DP +! ;
@@ -227,17 +238,24 @@ exit_DROP:
 
 
 QUIT:
+    \ Start in execute mode
     [
-    LIT 0 >TIB !
+    \ Initialize the input buffers
+    LIT addr_tib1 LIT usart_TIB !
+    LIT addr_tib2 LIT TIB !
+    LIT 0 usart_>IN !
 QUIT.begin: \ BEGIN
     sleep
-    \ FIXME: this might make us miss characters from the USART
-    >TIB @
+    \ Make sure the input buffer is not empty
+    usart_>IN @
     0BRANCH QUIT.begin
-    TIB @ >TIB @ + C@
+    TIB @ >IN @ + C@
     0=
     0BRANCH QUIT.begin
-    LIT 0 >IN !
+    \ Swap TIB & usart_TIB
+    usart_TIB @ TIB @  usart_TIB ! TIB !
+    \ Reinitialize the position pointers
+    LIT 0 DUP usart_>IN ! >IN !
     INTERPRET
     BRANCH QUIT.begin
 
@@ -245,7 +263,7 @@ QUIT.begin: \ BEGIN
 ((
   INTERPRET is the main interpreter.
 
-  This version only works with unsigned binary numbers
+  This version only works with unsigned decimal numbers
   -- no BASE support, no sign support, no DOUBLE support --
   but is otherwise fully functional. It is used to
   compile the other bootstrap files.
@@ -394,7 +412,8 @@ exit_0=: \ THEN
 
 ((
   Reads a delimited word from the input stream at the current position
-  (as indicated by TIB+>IN) and returns it.
+  (as indicated by TIB + >IN) and returns a pointer to a (length,start)
+  cells pair.
 
   : WORD
     TIB @ >IN @ + SWAP ENCLOSE
@@ -404,6 +423,10 @@ exit_0=: \ THEN
     R@ IF R> OVER C! ELSE DROP R> THEN ;
 ))
 
+: PAD
+    LIT addr_pad
+    EXIT
+
 : WORD  \ c "cXXXc" -- caddr | 0
     TIB @ >IN @ + SWAP ENCLOSE \ -- addr n1 n2 n3
     >IN +!
@@ -412,7 +435,7 @@ exit_0=: \ THEN
     +
     R@     \ -- addr length
     0BRANCH WORD.exit \ IF
-    HERE LIT 64 +     \ -- addr caddr
+    PAD           \ -- addr caddr
     R> OVER !     \ store the length first  -- addr caddr
     SWAP          \ -- caddr addr
     OVER CELL+ !  \ store the addr(c) second
@@ -723,9 +746,19 @@ start: \ :NONAME
    Dictionary structure:
 
    ' WORD, ' will append a name to the dictionary.
-   The word is stored in the CHAR memory.
-   In the cell memory we store the length and the char-addr of the
-   string. The following cell is used to store the word flag(s).
+   The layout is as follows:
+
+   (end of previous word)
+        name (string content) (NOT zero-padded, length is used for comparison)
+    NFA:
+        length
+        address of start of string
+    FLAGS:
+        flags
+    LFA:
+        link to previous NFA
+    PFA:
+        start of executable code
 
    Following the name is the pointer that links to the previously
    defined name. (Dictionary entries are thus in a linked list.)
@@ -747,14 +780,18 @@ start: \ :NONAME
    a sub-call).
 ))
 
-: WORD, ( caddr -- )
+: WORD, ( caddr -- nfa )
+    HERE >R         \ start of string in dictionary -- caddr
     COUNT           \                  -- addr len
-    DUP >R DUP ,    \ compile length   -- addr len
-    CHAR-HERE DUP , \ compile addr(c)  -- addr len char-here
-    LIT 0 ,         \ compile flags
-    \ -- addr len char-here
-    SWAP CMOVE
-    R> CALLOT
+    DUP CALLOT      \ allocate the memory for the string
+    SWAP OVER       \                  -- len addr len
+    R@ SWAP         \ HERE is dst      -- len addr dst len
+    CMOVE           \ copy the string  -- len
+    \ ALIGN         \ NFA
+    HERE SWAP       \                  -- nfa len
+    ,               \ compile length   -- nfa
+    R> ,            \ compile addr(c)  -- nfa
+    LIT 0 ,         \ compile flags    -- nfa
     EXIT
 
 : LFA,
@@ -987,6 +1024,8 @@ LATEST!.exit:
 
 ))
 
+\ Note: last_word is used to initialize LATEST (see top of this file).
+
 last_word:
 
 : :opcode  ( n 'name' --- )
@@ -1018,9 +1057,6 @@ opcode.does:
 ((
 
   At this point we have a complete base system that can compile opcodes.
-  We need one last definition to simplify the building of binary images.
-
-  Note: last_word is used to initialize LATEST (see top of this file).
 
 ))
 
