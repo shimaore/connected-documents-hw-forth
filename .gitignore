@@ -4,3 +4,5 @@ fas/fas.tab.h
 forth.bin*
 opcodes.*
 emulate
+emulate.log
+flash.bin
