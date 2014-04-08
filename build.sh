@@ -8,7 +8,7 @@ hexdump -v -e '/1 "0x%02x, "' -e '/1 " /* %06_ax %_u */\n"' forth.bin > forth.bi
 cc -o emulate -D__EMULATE -I. ../frifri-mcu-code/main.c || exit 1
 
 FORTH_LIBS="
-           opcodes.f \
+           opcodes.f boot/rstack.f \
            boot/char.f boot/comment.f \
            boot/branch.f boot/does.f \
            boot/misc.f boot/noname.f boot/value.f \
