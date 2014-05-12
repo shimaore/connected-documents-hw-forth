@@ -1,3 +1,15 @@
+\ +C: u1 u2 -- sum carry
+: +C
+  2DUP + >R
+  \ If the result is lower than either operands then overflow happened.
+  R@ U>
+  SWAP
+  R@ U>
+  OR
+  IF 1 ELSE 0 THEN
+  R> SWAP
+;
+
 \ U/MOD : u1 u2 -- rem quot
 : U/MOD
   1 >R >R 0

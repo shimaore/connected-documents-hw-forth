@@ -13,6 +13,7 @@
 uint8_t flash[0x80000];
 
 g_cell here = ADDR_FLASH;
+g_cell latest = 0;
 
 #include <stdio.h>
 
@@ -38,6 +39,7 @@ int main(void)
     fprintf (stderr, "yyparse failed\n");
     return 1;
   }
+  create_name("latest",latest);
   show_missing_symbols();
   dump();
   return 0;
@@ -134,6 +136,7 @@ void compile_word(char const* name)
   }
   else
   {
+    if(debug) fprintf(stderr, "    postponing %s at " DISPLAY_CELL_HEX "\n",name,here);
     atom->backref_list = new_cell(here,atom->backref_list);
     here += 3;
   }
@@ -179,6 +182,7 @@ void create_name(char const* name, g_cell value)
     }
     else
     {
+      fprintf(stderr,"    resolving backrefs for %s\n",name);
       resolve_backrefs(atom->backref_list,value);
       atom->backref_list = NULL;
     }
@@ -191,12 +195,9 @@ void create_name(char const* name, g_cell value)
   atom->value = value;
 }
 
-g_cell latest = 0;
-
 void compile_header(char const* name, short immediate)
 {
   if(debug) fprintf(stderr, "compile_header(%s)\n",name);
-  g_cell new_latest = here;
 
   unsigned len = strlen(name);
   g_cell name_pos = here;
@@ -210,15 +211,21 @@ void compile_header(char const* name, short immediate)
   here += len;
 
   // NFA
+  g_cell new_latest = here;
+  if(debug) fprintf(stderr, "  NFA: len\n");
   compile_value(len);       // len
+  if(debug) fprintf(stderr, "  NFA: name\n");
   compile_value(name_pos); // addr(c)
+  if(debug) fprintf(stderr, "  NFA: flags\n");
   compile_value(immediate); // flags
 
   // LFA
+  if(debug) fprintf(stderr, "  LFA\n");
   compile_value(latest);
   latest = new_latest;
 
   // PFA
+  if(debug) fprintf(stderr, "  PFA\n");
   create_name(name,here);
 }
 

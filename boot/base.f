@@ -4,7 +4,7 @@
 VARIABLE BASE
 : DECIMAL ( DECIMAL ) 10 BASE ! ;
 : HEX     ( DECIMAL ) 16 BASE ! ;
-: BIN                  2   BASE ! ;
+: BIN                  2 BASE ! ;
 \ Initialize BASE
 DECIMAL
 
@@ -26,7 +26,7 @@ DECIMAL
       IF
         DROP FALSE
       ELSE
-        ( BINARY ) 7 -
+        ( DECIMAL ) 7 -
         (BASE)
       THEN
     THEN

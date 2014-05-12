@@ -35,7 +35,7 @@ usart.not_newline:
   RDROP \ required for all interrupts
   EXIT
 
-EMIT:
+: EMIT
   usart_send DROP
   EXIT
 
@@ -63,7 +63,7 @@ __STATE:
 : _LATEST ( DP value of last defined word )
     LIT __LATEST  EXIT
 __LATEST:
-    last_word
+    latest
 
 : PFA     ( PFA of word currently been defined )
     LIT __PFA     EXIT
@@ -137,6 +137,8 @@ exit_DROP:
     1+ EXIT
 : CELL+
     1+ 1+ 1+ EXIT
+: CELLS
+    DUP 2* + EXIT
 
 ((
   DP is the address of the memory location containing the current
@@ -160,7 +162,7 @@ exit_DROP:
 
 
 : ALLOT   \ n --
-    DP +! EXIT
+    CELLS DP +! EXIT
 
 : ,       \ n --
     HERE !  LIT 1
@@ -629,7 +631,7 @@ ENCLOSE<>.2: \ THEN
     ROT          \ addr1 addr2 len2 len1
     OVER <>      \ addr1 addr2 len2 bool
     0BRANCH (S=) \ IF
-    NIP 2DROP LIT 0
+    DROP 2DROP LIT 0
     EXIT
 
 
@@ -838,9 +840,9 @@ LATEST!.exit:
 ))
 
 : HEADER
-    HERE NFA !
     BL WORD
-    WORD, LFA, PFA, EXIT
+    WORD, NFA !
+    LFA, PFA, EXIT
 
 ((
 
@@ -1026,8 +1028,6 @@ LATEST!.exit:
 ))
 
 \ Note: last_word is used to initialize LATEST (see top of this file).
-
-last_word:
 
 : :opcode  ( n 'name' --- )
     CREATE
